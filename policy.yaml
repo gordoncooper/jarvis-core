@@ -1,0 +1,195 @@
+# JARVIS 2 — policy.yaml
+# Source of truth for verbs. The orchestrator loads this.
+# Models do not invent verbs. If it is not here, it is refuse.
+# Proof: every trusted verb has a kubectl/API check that an operator can run.
+
+apiVersion: jarvis.lan/v1
+kind: Policy
+metadata:
+  name: jarvis-core
+  version: 0.1.0
+
+identity:
+  face: JARVIS
+  operator: Gordon
+  glass: https://jarvis.lan
+  noc: https://noc.lan
+  lab_only: true
+  lan_only: true
+
+models:
+  face: jarvis-local          # 7B talk / RAG. NO tools.
+  router: jarvis-grok         # classify only, ~2s, fallback heuristic
+  forge: jarvis-grok-code     # YAML / patches. Claude allowed later as forge-alt
+  hands: runtime              # not a chat model — tools + RBAC
+  life: jarvis-grok           # compose + tool calls after confirm
+
+routing:
+  classifier: llm
+  face_never_gets_tools: true
+  no_keyword_tier_rules: true
+  no_english_regex: true
+  prefixes_are_break_glass_only: ["local:", "hands:", "code:", "grok:"]
+
+facts:
+  persona: docs/persona.txt          # voice only
+  rack: docs/briefing.md             # git, static
+  memory: learned.md                 # writable, not committed
+  live: noc.lan telemetry API        # never paste Prom into the 7B
+  pulse: jarvis.lan strip            # one-line house + calendar, not a NOC
+
+surfaces:
+  primary: jarvis.lan
+  noc: noc.lan                       # independent of jarvis-core
+  inputs: [hud, voice, telegram]
+  break_glass: [chat.lan, agent.lan, llm.lan, git.lan, grafana.lan]
+  globe: jarvis.lan/globe
+  retired: [home.lan]                # old Home+Status → noc.lan
+
+# --- verbs ----------------------------------------------------------
+# class: trusted | confirm | refuse
+# trusted  = run, then audit
+# confirm  = HUD modal (or voice "confirm") then run
+# refuse   = not named yet
+
+verbs:
+  # Hands — inspect (trusted)
+  - id: inspect.nodes
+    class: trusted
+    worker: hands
+    rbac: ["get:nodes", "get:pods"]
+    proof: "kubectl get nodes -o wide"
+
+  - id: inspect.pods
+    class: trusted
+    worker: hands
+    rbac: ["get:pods", "get:deployments"]
+    proof: "kubectl get pods -A"
+
+  - id: inspect.gpu
+    class: trusted
+    worker: hands
+    rbac: ["get:pods:inference"]
+    proof: "kubectl get pods -n inference && nvidia-smi via gpu-01/02 agent"
+
+  - id: inspect.flux_or_git
+    class: trusted
+    worker: hands
+    note: "read Gitea + live deploy status; do not apply"
+
+  # Hands — mutate (narrow trusted)
+  - id: recycle.deploy
+    class: trusted
+    worker: hands
+    namespaces: [inference, agents, apps]
+    rbac: ["delete:pods", "patch:deployments"]
+    note: "existing openclaw-recycle Role. Do not widen."
+    proof: "kubectl rollout status deploy/<name> -n <ns>"
+
+  - id: recycle.deploy.other
+    class: confirm
+    worker: hands
+    note: "any namespace not in the list above"
+
+  # Memory
+  - id: memory.append
+    class: trusted
+    worker: memory
+    target: learned.md
+    proof: "tail learned.md"
+
+  - id: memory.recall
+    class: trusted
+    worker: memory
+
+  # Life — read
+  - id: life.calendar.read
+    class: trusted
+    worker: life
+    systems: [google-calendar]
+
+  - id: life.mail.read
+    class: confirm
+    worker: life
+    systems: [gmail]
+    note: "confirm because inbox is personal, not because send"
+
+  - id: life.x.read
+    class: trusted
+    worker: life
+    systems: [x]
+
+  - id: life.telegram.read
+    class: trusted
+    worker: life
+
+  # Life — write
+  - id: life.mail.send
+    class: confirm
+    worker: life
+    systems: [gmail]
+
+  - id: life.calendar.write
+    class: confirm
+    worker: life
+
+  - id: life.telegram.send
+    class: confirm
+    worker: life
+
+  - id: life.x.write
+    class: confirm
+    worker: life
+    note: "default off until Gordon names a post type"
+
+  - id: life.docs.draft
+    class: confirm
+    worker: life
+    systems: [google-docs]
+
+  # Voice
+  - id: voice.speak
+    class: trusted
+    worker: face
+    note: "Piper transport. No per-question laptop injects."
+
+  # Forge
+  - id: forge.propose
+    class: trusted
+    worker: forge
+    note: "write patch + Gitea PR. Does not merge."
+
+  - id: forge.apply.trusted_path
+    class: confirm
+    worker: forge
+    allowed:
+      - restart inference
+      - bump a VERSION pin already agreed
+    note: "architecture YAML is PR-only even after confirm"
+
+  - id: forge.merge
+    class: confirm
+    worker: forge
+
+  # Globe
+  - id: globe.show
+    class: trusted
+    worker: eye
+    note: "open /globe pane. No cameras in v1."
+
+# --- hard refuse until named ---------------------------------------
+refuse:
+  - cluster-admin
+  - delete namespaces
+  - cameras
+  - home-assistant devices
+  - spend money
+  - widen RBAC
+  - flux-system writes
+  - commit learned.md
+  - tools on jarvis-local
+
+audit:
+  log: /cluster/jarvis/audit.jsonl
+  fields: [ts, verb, class, actor, confirmed, result]
+  hud: show last 20 on /status

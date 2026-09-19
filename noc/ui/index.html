@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NOC · jarvis</title>
+  <style>
+    :root {
+      --bg: #07090b;
+      --ink: #d8e0e8;
+      --muted: #8b98a5;
+      --teal: #5eead4;
+      --steel: #3d4a55;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 "IBM Plex Mono", ui-monospace, monospace;
+    }
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 20px 28px 8px;
+      border-bottom: 1px solid var(--steel);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 13px;
+      letter-spacing: 0.22em;
+      color: var(--teal);
+      font-weight: 500;
+    }
+    header span { color: var(--muted); font-size: 12px; }
+    main { padding: 24px 28px; max-width: 960px; }
+    .pulse { color: var(--teal); margin-bottom: 20px; }
+    .pulse.stale { color: var(--warn); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 8px 0; border-bottom: 1px solid #1a2228; }
+    th { color: var(--muted); font-weight: 400; font-size: 11px; letter-spacing: 0.12em; }
+    .ready { color: var(--teal); }
+    .down { color: var(--warn); }
+    footer { padding: 16px 28px; color: var(--muted); font-size: 12px; }
+    a { color: var(--teal); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>NOC</h1>
+    <span id="meta">loading</span>
+  </header>
+  <main>
+    <p class="pulse" id="pulse">scraping…</p>
+    <table>
+      <thead>
+        <tr><th>NODE</th><th>ROLE</th><th>READY</th></tr>
+      </thead>
+      <tbody id="nodes">
+        <tr><td colspan="3">waiting on collector</td></tr>
+      </tbody>
+    </table>
+  </main>
+  <footer>
+    jarvis-noc · independent of inference ·
+    <a href="https://grafana.lan">grafana.lan</a> ·
+    <a href="https://git.lan">git.lan</a>
+  </footer>
+  <script>
+    async function tick() {
+      const pulse = document.getElementById("pulse");
+      const meta = document.getElementById("meta");
+      const tbody = document.getElementById("nodes");
+      try {
+        const r = await fetch("/api/snapshot", { cache: "no-store" });
+        const s = await r.json();
+        meta.textContent = s.version + " · up " + s.uptime_s + "s · kube " + (s.kube ? "yes" : "no");
+        pulse.className = "pulse";
+        pulse.textContent = s.kube
+          ? ("house " + (s.nodes.every(n => n.ready) ? "ok" : "degraded")
+             + " · pods " + s.pods.count
+             + " · not_ready " + s.pods.not_ready)
+          : "collector up · kube API not reached (still a valid health)";
+        if (s.nodes.length) {
+          tbody.innerHTML = s.nodes.map(n =>
+            "<tr><td>" + n.name + "</td><td>" + n.role + "</td><td class='" +
+            (n.ready ? "ready" : "down") + "'>" + (n.ready ? "ready" : "not ready") +
+            "</td></tr>"
+          ).join("");
+        } else {
+          tbody.innerHTML = "<tr><td colspan='3'>no node list (RBAC or off-cluster)</td></tr>";
+        }
+      } catch (e) {
+        pulse.className = "pulse stale";
+        pulse.textContent = "ui loaded · snapshot failed";
+      }
+    }
+    tick();
+    setInterval(tick, 5000);
+  </script>
+</body>
+</html>
