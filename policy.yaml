@@ -1,4 +1,14 @@
 # JARVIS 2 — policy.yaml
+#
+# STATUS: prior art. NOT ENFORCED. Nothing loads or parses this file — there is
+# no orchestrator, no worker, and no manifest that mounts it. Do not assume a
+# verb below is permitted or blocked at runtime. See D-0003 in
+# jarvis-infra/docs/DECISIONS.md.
+#
+# Kept because the model is good and feeds the next design: every capability is
+# a named verb with a class and a proof. Read it as a proposal, not as law.
+#
+# Original intent follows.
 # Source of truth for verbs. The orchestrator loads this.
 # Models do not invent verbs. If it is not here, it is refuse.
 # Proof: every trusted verb has a kubectl/API check that an operator can run.

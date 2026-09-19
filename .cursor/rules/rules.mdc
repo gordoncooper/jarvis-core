@@ -1,0 +1,21 @@
+---
+description: jarvis-core — prior art, read-only
+alwaysApply: true
+---
+
+This repo is SUPERSEDED (D-0003). Read-only reference. Do not extend it, do not
+add features, and do not treat policy.yaml or docs/HUD.md as binding law —
+nothing loads policy.yaml; it is a document, not an enforcement point.
+
+The contract is ~/jarvis-infra/AGENTS.md, then ~/jarvis-infra/docs/DECISIONS.md.
+DECISIONS outranks any prose in this repo. Read those before acting here.
+
+You are on the bastion as agent. Use the shell. Do not emit heredocs for Gordon.
+~/jarvis-core → GitHub. Never Flux-watch this repo.
+Never kubectl apply for Flux-owned apps; the deploy/scripts/install-*.sh here
+are the one documented exception, because Flux does not watch them.
+No Vite, no App Builder, no kubeconfig on the laptop.
+
+Its docs are known-stale and deliberately unfixed: LAYOUT.md references
+workers/, artifacts/, and docs/SPEC.md that were never written, says namespace
+`jarvis` when manifests use `apps`, and describes two containers where one ships.
