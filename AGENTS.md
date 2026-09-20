@@ -21,8 +21,9 @@ A dated decision outranks any prose in this repo.
 
 These are catalogued rather than fixed, because the repo is frozen.
 
-Read-only is enforced, not just asked for: `.claude/settings.json` denies all
-edits here for Claude Code and Grok CLI (D-0007). Keep that file committed.
+Read-only here is a design rule, not a file lock: `deploy/scripts/install-*.sh`
+still deploy the live `jarvis.lan` and `noc.lan`, so edits are not blocked and
+git history is the undo. Do not build anything new here.
 
 ## Rules that still apply here
 
